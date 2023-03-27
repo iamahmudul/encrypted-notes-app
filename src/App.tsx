@@ -1,51 +1,19 @@
-import { useEditor, Content, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
 import { useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import styles from './App.module.css';
-
-type Note = {
-  id: string,
-  title: string,
-  content: Content,
-  updatedAt: Date
-}
+import { Note } from './types';
+import NoteEditor from './NoteEditor';
+import { JSONContent } from '@tiptap/react';
 
 function App() {
   const [notes, setNotes] = useState<Record<string, Note>>({});
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-    ],
-    content: '<p>Write your note here...</p>',
-    editorProps: {
-      attributes: {
-        class: styles.textEditor,
-      },
-    }
-  })
-
-  const toggleBold = () => editor?.chain().focus().toggleBold().run();
-
-  const toggleItalic = () => editor?.chain().focus().toggleItalic().run();
-
-  const toggleStrike = () => editor?.chain().focus().toggleStrike().run();
-
-  const toggleH1 = () => editor?.chain().focus().toggleHeading({ level: 1 }).run();
-  
-  const toggleH3 = () => editor?.chain().focus().toggleHeading({ level: 3 }).run();
-  
-  const toggleH5 = () => editor?.chain().focus().toggleHeading({ level: 5 }).run();
-  
-  const toggleBulletList = () => editor?.chain().focus().toggleBulletList().run();
-  
-  const toggleOrderedList = () => editor?.chain().focus().toggleOrderedList().run();
+  const activeNote = activeNoteId ? notes[activeNoteId] : null;
 
   const handleCreateNewNote = () => {
     const newNote = {
       id: uuid(),
-      title: 'A new note title',
+      title: 'New Note',
       content: '<h1>This is note content</h1>',
       updatedAt: new Date()
     };
@@ -53,10 +21,24 @@ function App() {
       ...notes,
       [newNote.id]: newNote
     }));
+    setActiveNoteId(newNote.id);
   }
 
   const handleChangeActiveNoteId = (id: string) => {
     setActiveNoteId(id);
+    console.log(id)
+  }
+
+  const handleChangeNoteContent = (activeNoteId: string, content: JSONContent, title: string = "New Note") => {
+    setNotes((notes) => ({
+      ...notes,
+      [activeNoteId]: {
+        ...notes[activeNoteId],
+        updatedAt: new Date(),
+        content,
+        title
+      }
+    }));
   }
 
   const notesList = Object.values(notes).sort(
@@ -73,81 +55,26 @@ function App() {
               <div key={note.id} 
                 role="button" 
                 tabIndex={0} 
-                className={styles.sidebarItem}
-                onChange={() => handleChangeActiveNoteId(note.id)}>{note.title}</div>
+                className={
+                  note.id === activeNoteId ? 
+                  styles.sidebarItemActive : 
+                  styles.sidebarItem
+                }
+                onClick={() => handleChangeActiveNoteId(note.id)}>
+                {note.title}
+                <div className={styles.noteUpdateTime}>{note.updatedAt.toISOString().substring(0, 19).replace('T', ' ')}</div>
+              </div>
             ))
           }
         </div>
       </div>
-      <div className={styles.editorContainer}>
-        <div className={styles.toolbar}>
-          <button 
-            className={
-              editor?.isActive('bold') 
-                ? styles.toolbarButtonActive 
-                : styles.toolbarButton
-            }
-            onClick={toggleBold}
-            >Bold</button>
-
-          <button
-            className={
-              editor?.isActive('italic') 
-                ? styles.toolbarButtonActive 
-                : styles.toolbarButton
-            }
-            onClick={toggleItalic}>Italic</button>
-          
-          <button
-            className={
-              editor?.isActive('strike') 
-                ? styles.toolbarButtonActive 
-                : styles.toolbarButton
-            }
-            onClick={toggleStrike}>Strike</button>
-          
-          <button
-            className={
-              editor?.isActive('heading', { level: 1 }) 
-                ? styles.toolbarButtonActive 
-                : styles.toolbarButton
-            }
-            onClick={toggleH1}>H1</button>
-          
-          <button
-            className={
-              editor?.isActive('heading', { level: 3 }) 
-                ? styles.toolbarButtonActive 
-                : styles.toolbarButton
-            }
-            onClick={toggleH3}>H3</button>
-          
-          <button
-            className={
-              editor?.isActive('heading', { level: 5 }) 
-                ? styles.toolbarButtonActive 
-                : styles.toolbarButton
-            }
-            onClick={toggleH5}>H5</button>
-        
-          <button
-            className={
-              editor?.isActive('bulletList', { level: 5 }) 
-                ? styles.toolbarButtonActive 
-                : styles.toolbarButton
-            }
-            onClick={toggleBulletList}>Bullet list</button>
-          
-          <button
-            className={
-              editor?.isActive('orderedList', { level: 5 }) 
-                ? styles.toolbarButtonActive 
-                : styles.toolbarButton
-            }
-            onClick={toggleOrderedList}>Ordered list</button>
-        </div>
-        <EditorContent editor={editor} className={styles.textEditorComponent} />
-      </div>
+      {
+        activeNote ? (
+          <NoteEditor note={activeNote} onChange={(content, title) => handleChangeNoteContent(activeNote.id, content, title)} />
+        ) : (
+          <div>Create a new note or select an existing one</div>
+        )
+      }
     </div>
   );
 }
