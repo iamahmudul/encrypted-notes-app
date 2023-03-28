@@ -3,10 +3,36 @@ import { v4 as uuid } from 'uuid';
 import styles from './App.module.css';
 import { Note } from './types';
 import NoteEditor from './NoteEditor';
+import storage from './storage';
 import { JSONContent } from '@tiptap/react';
+import debounce from './debounce';
+
+const STORAGE_KEY = 'notes';
+
+const loadNotes = () => {
+  const noteIds = storage.get<string[]>(STORAGE_KEY, []);
+  const notes: Record<string, Note> = {};
+  
+  noteIds.forEach(id => {
+    const note = storage.get<Note>(`${STORAGE_KEY}:${id}`);
+    notes[note.id] = {
+      ...note,
+      updatedAt: new Date(note.updatedAt)
+    }
+  })
+
+  return notes;
+}
+
+const saveNote = debounce((note: Note) => {
+  const noteIds = storage.get<string[]>(STORAGE_KEY, []);
+  const noteIdsWithNote = noteIds.filter(id => id !== note.id);
+  storage.set(STORAGE_KEY, [...noteIdsWithNote, note.id]);
+  storage.set(`${STORAGE_KEY}:${note.id}`, note);
+}, 300);
 
 function App() {
-  const [notes, setNotes] = useState<Record<string, Note>>({});
+  const [notes, setNotes] = useState<Record<string, Note>>(() => loadNotes());
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const activeNote = activeNoteId ? notes[activeNoteId] : null;
 
@@ -22,6 +48,7 @@ function App() {
       [newNote.id]: newNote
     }));
     setActiveNoteId(newNote.id);
+    saveNote(newNote)
   }
 
   const handleChangeActiveNoteId = (id: string) => {
@@ -30,15 +57,17 @@ function App() {
   }
 
   const handleChangeNoteContent = (activeNoteId: string, content: JSONContent, title: string = "New Note") => {
+    const updatedNote = {
+      ...notes[activeNoteId],
+      updatedAt: new Date(),
+      content,
+      title
+    };
     setNotes((notes) => ({
       ...notes,
-      [activeNoteId]: {
-        ...notes[activeNoteId],
-        updatedAt: new Date(),
-        content,
-        title
-      }
+      [activeNoteId]: updatedNote
     }));
+    saveNote(updatedNote);
   }
 
   const notesList = Object.values(notes).sort(
